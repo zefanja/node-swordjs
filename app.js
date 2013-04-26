@@ -6,9 +6,9 @@ var fs = require('fs');
 var async = require('async');
 //var forEachAsync = require('Array.prototype.forEachAsync');
 var mappings = require("./mappings.js");
-var fileName = "esv/ot.bzz";
-var ntIndex = "esv/ot.bzs";
-var ntIndexV = "esv/ot.bzv";
+var fileName = "esv/nt.bzz";
+var ntIndex = "esv/nt.bzs";
+var ntIndexV = "esv/nt.bzv";
 var bookPositions = [];
 var chapters = [];
 
@@ -79,6 +79,7 @@ function handleReadZsFile (fd) {
         },
         function (err) {
             //console.log("passed whilst handleReadZsFile", bookPositions);
+            //getChapterBytes();
             reloadZvFile(ntIndexV);
         }
     );
@@ -135,7 +136,7 @@ function handleReadZvFile (fd, inCallback) {
 
 function readBooksAndChapters (fd) {
     console.log("readBooksAndChapters...", bookPositions.length);
-    var booksZ = 0; //mappings.data.BooksInOt;
+    var booksZ = mappings.data.BooksInOt;
     var chapterZ = 0;
     var verseZ = 0;
     var chapterStartPos = 0;
@@ -149,7 +150,7 @@ function readBooksAndChapters (fd) {
 
     async.whilst(
         function () {
-            return booksZ<mappings.data.BooksInOt;
+            return booksZ<mappings.data.BooksInOt+2;
             //return booksZ<40;
         },
         function (callbackB) {
@@ -296,46 +297,35 @@ function readBooksAndChapters (fd) {
 }
 
 function getChapterBytes(chapterNumber) {
-    var versesForChapterPositions = chapters[chapterNumber];
-    var bookStartPos = versesForChapterPositions.bookStartPos;
-    var blockStartPos = versesForChapterPositions.startPos;
-    var blockLen = versesForChapterPositions.Length;
+    if (chapterNumber) {
+        var versesForChapterPositions = chapters[chapterNumber];
+        var bookStartPos = versesForChapterPositions.bookStartPos;
+        var blockStartPos = versesForChapterPositions.startPos;
+        var blockLen = versesForChapterPositions.Length;
 
-    console.log(versesForChapterPositions);
+        console.log(versesForChapterPositions);
 
-    var chapterBuffer = new Buffer(blockLen);
-    var totalBytesRead = 0;
-    var totalBytesCopied = 0;
-    var len = 0;
+        var chapterBuffer = new Buffer(blockLen);
+        var totalBytesRead = 0;
+        var totalBytesCopied = 0;
+        var len = 0;
+    }
 
     fs.exists(fileName, function(exists) {
         if (exists)
             fs.stat(fileName, function(error, stats) {
-                var readStream = fs.createReadStream(fileName, {start: 122309, end: 122309+100000});
+                var readStream = fs.createReadStream(fileName, {start: bookStartPos});
                 readStream.on("readable", function () {
                     console.log("opened file");
-                    zlib.unzip(readStream.read(121284), function (err, result) {
-                        console.log(err, result.toString());
+                    zlib.unzip(readStream.read(), function (err, result) {
+                        if(result)
+                            console.log(err, result.toString("utf8", blockStartPos, blockStartPos+blockLen));
                     });
 
                 });
                 readStream.on("error", function (err) {
                     console.log("ERROR:", err);
                 });
-                /*fs.open(fileName, "r", function (err, fd) {
-                    console.log("opened file:", err, fd, stats.size);
-                    var buffer = new Buffer(blockLen);
-                    fs.read(fd, buffer, 0, buffer.length, bookStartPos, function (err, bytesRead, buffer) {
-                        var nt = zip.Reader(buffer);
-                        //nt.toObject("utf8");
-                        nt.forEach(function (entry) {
-                            console.log(entry);
-                        });
-                        zlib.inflate(buffer, function (err, result) {
-                            console.log(err, result);
-                        });
-                    });
-                });*/
             });
     });
 }
