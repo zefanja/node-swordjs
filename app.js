@@ -1,13 +1,14 @@
 console.log("Starting ZText Reader...");
 var zlib = require('zlib');
 var zip = require('zip');
+var unzip = require("unzip");
 var fs = require('fs');
 var async = require('async');
 //var forEachAsync = require('Array.prototype.forEachAsync');
 var mappings = require("./mappings.js");
-var fileName = "esv/nt.bzz";
-var ntIndex = "esv/nt.bzs";
-var ntIndexV = "esv/nt.bzv";
+var fileName = "esv/ot.bzz";
+var ntIndex = "esv/ot.bzs";
+var ntIndexV = "esv/ot.bzv";
 var bookPositions = [];
 var chapters = [];
 
@@ -134,7 +135,7 @@ function handleReadZvFile (fd, inCallback) {
 
 function readBooksAndChapters (fd) {
     console.log("readBooksAndChapters...", bookPositions.length);
-    var booksZ = mappings.data.BooksInOt;
+    var booksZ = 0; //mappings.data.BooksInOt;
     var chapterZ = 0;
     var verseZ = 0;
     var chapterStartPos = 0;
@@ -148,15 +149,15 @@ function readBooksAndChapters (fd) {
 
     async.whilst(
         function () {
-            //return booksZ<mappings.data.BooksInNt+mappings.data.BooksInOt;
-            return booksZ<40;
+            return booksZ<mappings.data.BooksInOt;
+            //return booksZ<40;
         },
         function (callbackB) {
             chapterZ = 0;
-            console.log("Chapters in Book", mappings.data.ChaptersInBook[booksZ]);
+            //console.log("Chapters in Book", mappings.data.ChaptersInBook[booksZ]);
             async.whilst(
                 function () {
-                    console.log("Chapters in Book:", chapterZ, mappings.data.ChaptersInBook[booksZ]);
+                    //console.log("Chapters in Book:", chapterZ, mappings.data.ChaptersInBook[booksZ]);
                     return chapterZ<mappings.data.ChaptersInBook[booksZ];},
                 function (callbackC) {
                     chapterStartPos = 0;
@@ -173,7 +174,7 @@ function readBooksAndChapters (fd) {
                             async.series([
                                 function (callback) {
                                     getShortIntFromStream(fd, function (value) {
-                                        console.log("booknum", value);
+                                        //console.log("booknum", value);
                                         booknum = value;
                                         callback(null);
                                     });
@@ -195,14 +196,14 @@ function readBooksAndChapters (fd) {
                                             chapterStartPos = startPos;
                                             bookStartPos = 0;
                                             if (booknum < bookPositions.length) {
-                                                console.log("bookPositions.startPos", bookPositions[booknum].startPos, booknum, bookPositions.length);
+                                                //console.log("bookPositions.startPos", bookPositions[booknum].startPos, booknum, bookPositions.length);
                                                 bookStartPos = bookPositions[booknum].startPos;
                                             }
 
                                             /*if (this.BlockType === IndexingBlockType.Chapter)
                                                 chapterStartPos = 0; */
 
-                                            chapt["chapterStartPos"] = chapterStartPos;
+                                            chapt["startPos"] = chapterStartPos;
                                             chapt["booknum"] = booksZ;
                                             chapt["bookRelativeChapterNum"] = chapterZ;
                                             chapt["bookStartPos"] = bookStartPos;
@@ -224,14 +225,14 @@ function readBooksAndChapters (fd) {
                                 }
                             ],
                             function (err, results) {
-                                console.log("async.series", err, results);
+                                //console.log("async.series", err, results);
                                 verseZ++;
                                 callbackV();
                             });
 
                         },
                         function (err) {
-                            console.log("passed whilst verses");
+                            //console.log("passed whilst verses");
                             // update the chapter length now that we know it
                             if (chapt != {}) {
                                 chapt["Length"] = lastNonZeroStartPos - chapterStartPos + length;
@@ -262,7 +263,7 @@ function readBooksAndChapters (fd) {
                     );
                 },
                 function (err) {
-                    console.log("passed whilst chapters", chapterZ);
+                    //console.log("passed whilst chapters", chapterZ);
                     async.series([
                         function (callback) {
                             getShortIntFromStream(fd, function () {
@@ -287,10 +288,56 @@ function readBooksAndChapters (fd) {
             );
         },
         function (err) {
-            console.log("passed whilst books", chapters);
+            //console.log("passed whilst books", chapters);
+            getChapterBytes(1);
         }
     );
 
+}
+
+function getChapterBytes(chapterNumber) {
+    var versesForChapterPositions = chapters[chapterNumber];
+    var bookStartPos = versesForChapterPositions.bookStartPos;
+    var blockStartPos = versesForChapterPositions.startPos;
+    var blockLen = versesForChapterPositions.Length;
+
+    console.log(versesForChapterPositions);
+
+    var chapterBuffer = new Buffer(blockLen);
+    var totalBytesRead = 0;
+    var totalBytesCopied = 0;
+    var len = 0;
+
+    fs.exists(fileName, function(exists) {
+        if (exists)
+            fs.stat(fileName, function(error, stats) {
+                var readStream = fs.createReadStream(fileName, {start: 122309, end: 122309+100000});
+                readStream.on("readable", function () {
+                    console.log("opened file");
+                    zlib.unzip(readStream.read(121284), function (err, result) {
+                        console.log(err, result.toString());
+                    });
+
+                });
+                readStream.on("error", function (err) {
+                    console.log("ERROR:", err);
+                });
+                /*fs.open(fileName, "r", function (err, fd) {
+                    console.log("opened file:", err, fd, stats.size);
+                    var buffer = new Buffer(blockLen);
+                    fs.read(fd, buffer, 0, buffer.length, bookStartPos, function (err, bytesRead, buffer) {
+                        var nt = zip.Reader(buffer);
+                        //nt.toObject("utf8");
+                        nt.forEach(function (entry) {
+                            console.log(entry);
+                        });
+                        zlib.inflate(buffer, function (err, result) {
+                            console.log(err, result);
+                        });
+                    });
+                });*/
+            });
+    });
 }
 
 function getIntFromStream(fd, inCallback) {
