@@ -10,3 +10,8 @@ npm install async
 ```
 
 See `app.js` for how to use this module.
+
+Licence
+=======
+
+node-swordjs is licenced under the GNU GPLv3. The bible reference parser is under the MIT Licence.
