@@ -1,8 +1,9 @@
 var SWMgr = require("./lib/SWModuleMgr.js");
 
-SWMgr.getModule("gerneue", function (inModule) {
+
+SWMgr.getModule("esv", function (inModule) {
     if (inModule)
-        inModule.renderText("Ps 23:1", function (inText) {
+        inModule.renderText("Mt 1:1", function (inText) {
             console.log(inText);
         });
 });
